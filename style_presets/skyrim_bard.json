@@ -1,0 +1,7 @@
+{
+  "description": "Skyrim bard — bone-dry solo lute + intimate single vocal",
+  "inference_steps": 24,
+  "guidance_scale": 6.0,
+  "default_bpm": 80,
+  "lm_negative_prompt": "reverb, echo, delay, slapback, room ambience, choir, harmony, double tracking, drums, bass, synth"
+}

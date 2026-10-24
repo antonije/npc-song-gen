@@ -1,0 +1,14 @@
+*.aac
+*.flac
+*.mp3
+*.opus
+*.py[cod]
+*.wav
+.DS_Store
+.env
+.venv/
+.idea/
+__pycache__/
+mod_assets/
+separated/
+vendor/
