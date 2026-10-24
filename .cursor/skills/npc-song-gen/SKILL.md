@@ -4,7 +4,7 @@ description: >-
   Generate immersion-safe NPC / game-mod songs via the local ACE-Step 1.5
   pipeline in npc-song-gen (single instrument + vocals, Demucs purify by default).
   Starts ACE-Step automatically if the API is down. Use when the user asks to
-  generate music, NPC songs, campfire/tavern audio, run npc-song-gen or music-gen,
+  generate music, NPC songs, campfire/tavern audio, run npc-song-gen,
   purify stems, or create mod audio assets with ACE-Step.
 ---
 
@@ -51,7 +51,8 @@ Reusable structured style prompts (Genre / Vocals / Instruments / Production / M
 
 | Slug | Purpose |
 | --- | --- |
-| `skyrim_bard` | Dry solo instrument + intimate single vocal |
+| `skyrim_bard` | Dry solo instrument + intimate single vocal (~80 BPM) |
+| `skyrim_campfire` | Unplugged campfire folk; intimate raw mix (~85 BPM; often `--instrument guitar`) |
 
 ```text
 style_presets/<slug>.txt    # template with {vocals} and {instrument} placeholders
@@ -64,14 +65,13 @@ style_presets/<slug>.json   # inference_steps, guidance_scale, default_bpm, lm_n
 
 When `--style` is set, it owns the prompt; `--song` only supplies lyrics. `{instrument}` is filled from `--instrument` (default `lute`).
 
-### Multi-song library (`lyrics/` + optional `prompts/`)
+### Multi-song library (`lyrics/`)
 
 ```text
 lyrics/<slug>.txt     # required — lyrics with [Verse]/[Chorus] tags
-prompts/<slug>.txt    # optional legacy style (used only if --style omitted)
 ```
 
-Current songs: `campfire_guitar`, `ragnar_the_red`, `the_dragonborn_comes`.
+Current songs: `campfire_guitar`, `the_dragons_bane`, `ragnar_the_red`, `the_dragonborn_comes`.
 
 `ragnar_the_red` and `the_dragonborn_comes` lyrics are from *Skyrim* (Bethesda);
 this project holds no copyright in them — see `CREDITS.md`. Do not put credit
@@ -81,6 +81,7 @@ text inside `lyrics/*.txt` (those files are sent verbatim to ACE-Step).
 **List songs:** `uv run python generate_npc_song.py --list-songs`.
 
 - Never hardcode long prompts/lyrics in the script/skill body.
+- Style presets own the prompt (`--style`, default `skyrim_bard`). No per-song `prompts/` files.
 - `{vocals}` in style presets is filled from `--vocalist`.
 - `{instrument}` is filled from `--instrument` (prompt guidance only — Demucs does not pick the instrument).
 - BPM: `--bpm` > `[N bpm]` in prompt > style `default_bpm` > 85.
@@ -145,6 +146,7 @@ cd /home/tonka/personal-work/npc-song-gen && uv run python generate_npc_song.py 
 | `--quality` | DiT | LM | Notes |
 | --- | --- | --- | --- |
 | `default` | `acestep-v15-sft` | `0.6B` | **Daily default** — best reliable quality on 12GB |
+| `sft-1.7b` | `acestep-v15-sft` | `1.7B` | Higher planning; often CPU-decodes on 12GB |
 | `xl` | `acestep-v15-xl-turbo` | `0.6B` | Try XL quality (may offload/OOM) |
 | `xl-sft` | `acestep-v15-xl-sft` | `0.6B` | Max XL — tightest VRAM |
 

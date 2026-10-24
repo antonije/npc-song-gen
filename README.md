@@ -40,6 +40,7 @@ Lyrics live in `lyrics/<slug>.txt`. List with `--list-songs`.
 | Slug | Title | Source |
 | --- | --- | --- |
 | `campfire_guitar` | Campfire guitar | Project lyric sheet |
+| `the_dragons_bane` | The Dragon's Bane | Project lyric sheet |
 | `ragnar_the_red` | Ragnar the Red | *Skyrim* (Bethesda) — see [CREDITS.md](CREDITS.md) |
 | `the_dragonborn_comes` | The Dragonborn Comes | *Skyrim* (Bethesda) — see [CREDITS.md](CREDITS.md) |
 
@@ -105,8 +106,7 @@ Structural section tags in lyrics (`[Verse 1]`, `[Chorus]`) help keep arrangemen
 ```
 npc-song-gen/
 ├── generate_npc_song.py   # main pipeline
-├── style_presets/         # reusable style prompts ({vocals}, {instrument})
-├── prompts/               # legacy prompt snippets
+├── style_presets/         # style prompts ({vocals}, {instrument})
 ├── lyrics/                # lyric sheets
 ├── CREDITS.md             # Skyrim lyric attribution / no-copyright notice
 ├── scripts/ensure_acestep.sh

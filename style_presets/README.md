@@ -4,7 +4,8 @@ Reusable ACE-Step style prompts for different song types.
 
 | Slug | Use for |
 | --- | --- |
-| `skyrim_bard` | Skyrim tavern / campfire bard songs (dry solo instrument + intimate vocal) |
+| `skyrim_bard` | Tavern / storytelling bard (dry solo instrument, ~80 BPM) |
+| `skyrim_campfire` | Unplugged campfire folk (intimate raw mix, ~85 BPM; pair with `--instrument guitar`) |
 
 ## Files
 
@@ -17,7 +18,7 @@ Reusable ACE-Step style prompts for different song types.
 uv run python generate_npc_song.py --list-styles
 uv run python generate_npc_song.py --list-instruments
 uv run python generate_npc_song.py \
-  --vocalist female --instrument lute --style skyrim_bard --song the_dragonborn_comes
+  --vocalist female --instrument guitar --style skyrim_campfire --song campfire_guitar
 ```
 
 `--instrument` choices: `lute` (default), `guitar`, `flute`, `harp`, `mandolin`, `fiddle`, `lyre`.

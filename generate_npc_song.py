@@ -2,7 +2,7 @@
 """Generate a single-instrument + vocal NPC song via local ACE-Step 1.5.
 
 Style: style_presets/<slug>.txt (+ optional .json for steps/bpm).
-Songs: lyrics/<slug>.txt (prompts/<slug>.txt only if --style omitted).
+Songs: lyrics/<slug>.txt only (style presets own the prompt).
 
 Workflow:
   1. POST /release_task  -> task_id
@@ -28,14 +28,12 @@ from urllib.parse import urljoin, urlparse
 import requests
 
 ROOT = Path(__file__).resolve().parent
-PROMPTS_DIR = ROOT / "prompts"
 LYRICS_DIR = ROOT / "lyrics"
 STYLE_PRESETS_DIR = ROOT / "style_presets"
 DEFAULT_OUTPUT_DIR = ROOT / "mod_assets" / "audio"
 DEFAULT_STEMS_DIR = ROOT / "separated"
 DEFAULT_SONG = "campfire_guitar"
 DEFAULT_STYLE = "skyrim_bard"
-DEFAULT_PROMPT_FILE = PROMPTS_DIR / f"{DEFAULT_SONG}.txt"
 DEFAULT_LYRICS_FILE = LYRICS_DIR / f"{DEFAULT_SONG}.txt"
 
 # DiT + LM presets for a 12GB 3080 Ti (override with --model / --lm-model / steps).
@@ -158,7 +156,7 @@ def list_instruments() -> list[str]:
 
 
 def apply_vocalist_tags(prompt: str, vocalist: str) -> str:
-    """Append required single-singer gender tags (legacy song prompt files)."""
+    """Append required single-singer gender tags (inline / custom prompt files)."""
     tags = VOCALIST_TAGS[vocalist]
     base = prompt.strip().rstrip(",")
     return f"{base}, {tags}"
@@ -186,7 +184,7 @@ def apply_style_template(template: str, vocalist: str, instrument: str) -> str:
 
 
 def list_songs() -> list[str]:
-    """Song slugs with lyrics (prompt file optional when using --style)."""
+    """Song slugs with lyrics under lyrics/."""
     if not LYRICS_DIR.is_dir():
         return []
     return sorted(p.stem for p in LYRICS_DIR.glob("*.txt"))
@@ -198,21 +196,14 @@ def list_styles() -> list[str]:
     return sorted(p.stem for p in STYLE_PRESETS_DIR.glob("*.txt"))
 
 
-def resolve_song_paths(slug: str, *, require_prompt: bool = True) -> tuple[Path | None, Path]:
-    prompt_path = PROMPTS_DIR / f"{slug}.txt"
+def resolve_lyrics_path(slug: str) -> Path:
     lyrics_path = LYRICS_DIR / f"{slug}.txt"
     if not lyrics_path.is_file():
         available = ", ".join(list_songs()) or "(none)"
         raise SystemExit(
             f"Song '{slug}' missing lyrics at {lyrics_path}\nAvailable songs: {available}"
         )
-    if require_prompt and not prompt_path.is_file():
-        available = ", ".join(list_songs()) or "(none)"
-        raise SystemExit(
-            f"Song '{slug}' missing prompt at {prompt_path}\n"
-            f"Use --style <preset> or add the prompt file. Songs: {available}"
-        )
-    return (prompt_path if prompt_path.is_file() else None), lyrics_path
+    return lyrics_path
 
 
 def load_style_preset(slug: str) -> tuple[str, dict[str, Any]]:
@@ -575,7 +566,7 @@ def remix_vocals_and_instrument(
 
     print(
         f"Remixing {vocals.name} + {instrument.name} "
-        f"(mono, de-echo, lute×{instrument_gain:.2f}) …"
+        f"(mono, de-echo, instrument×{instrument_gain:.2f}) …"
     )
     v_seg = AudioSegment.from_wav(vocals)
     i_seg = AudioSegment.from_file(instrument)
@@ -751,18 +742,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="SLUG",
         help=(
-            "Song slug → lyrics/<slug>.txt (+ prompts/<slug>.txt unless --style) "
+            "Song slug → lyrics/<slug>.txt "
             f"(available: {', '.join(list_songs()) or 'none yet'})"
         ),
     )
     p.add_argument(
         "--style",
-        default=None,
+        default=DEFAULT_STYLE,
         metavar="SLUG",
         help=(
             "Style preset from style_presets/<slug>.txt "
             f"(available: {', '.join(list_styles()) or 'none yet'}; "
-            f"recommended for Skyrim: {DEFAULT_STYLE})"
+            f"default: {DEFAULT_STYLE})"
         ),
     )
     p.add_argument(
@@ -778,13 +769,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--name",
         default=None,
-        help="Output filename (default: <song-slug>.wav or npc_campfire_song.wav)",
+        help="Output filename (default: <song-slug>.wav)",
     )
     p.add_argument(
         "--prompt-file",
         type=Path,
         default=None,
-        help="Prompt text file (default from --song or campfire_guitar)",
+        help="Optional custom prompt file (overrides --style)",
     )
     p.add_argument(
         "--lyrics-file",
@@ -792,7 +783,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Lyrics text file (default from --song or campfire_guitar)",
     )
-    p.add_argument("--prompt", default=None, help="Inline prompt (overrides --prompt-file)")
+    p.add_argument("--prompt", default=None, help="Inline prompt (overrides --style / --prompt-file)")
     p.add_argument("--lyrics", default=None, help="Inline lyrics (overrides --lyrics-file)")
     p.add_argument(
         "--vocalist",
@@ -828,7 +819,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--quality",
         choices=sorted(QUALITY_PRESETS.keys()),
-        default=os.getenv("MUSIC_GEN_QUALITY", "default"),
+        default=os.getenv("NPC_SONG_GEN_QUALITY")
+        or os.getenv("MUSIC_GEN_QUALITY", "default"),
         help="Model preset: default=2B SFT+0.6B, sft-1.7b, xl=XL turbo, xl-sft (tight VRAM)",
     )
     p.add_argument(
@@ -936,8 +928,11 @@ def main(argv: list[str] | None = None) -> int:
     model = args.model or quality["model"]
     lm_model = args.lm_model or quality["lm_model_path"]
 
+    # Inline / custom prompt-file skip the style template, but still load meta if --style set.
+    use_style_template = args.prompt is None and args.prompt_file is None
     style_slug = args.style
     style_meta: dict[str, Any] = {}
+    style_template = ""
     if style_slug:
         style_template, style_meta = load_style_preset(style_slug)
 
@@ -957,18 +952,11 @@ def main(argv: list[str] | None = None) -> int:
     song_slug = args.song
     if song_slug:
         song_slug = slugify_title(song_slug) if " " in song_slug else song_slug
-        prompt_path, lyrics_path = resolve_song_paths(
-            song_slug, require_prompt=not bool(style_slug or args.prompt)
-        )
-        if args.prompt_file is None and prompt_path is not None:
-            args.prompt_file = prompt_path
         if args.lyrics_file is None:
-            args.lyrics_file = lyrics_path
+            args.lyrics_file = resolve_lyrics_path(song_slug)
     else:
         if args.lyrics_file is None:
             args.lyrics_file = DEFAULT_LYRICS_FILE
-        if args.prompt_file is None and not style_slug:
-            args.prompt_file = DEFAULT_PROMPT_FILE
         song_slug = (args.lyrics_file or DEFAULT_LYRICS_FILE).stem
 
     if args.name is None:
@@ -987,15 +975,9 @@ def main(argv: list[str] | None = None) -> int:
             args.instrument,
         )
         prompt_source = "(inline)"
-    elif style_slug:
-        # Style preset owns the style prompt; song files only supply lyrics.
-        prompt = apply_style_template(style_template, args.vocalist, args.instrument)
-        prompt_source = f"style:{style_slug}"
-    else:
-        if args.prompt_file is None or not args.prompt_file.is_file():
-            raise SystemExit(
-                "No prompt source. Pass --style <preset>, --prompt-file, or --prompt."
-            )
+    elif args.prompt_file is not None:
+        if not args.prompt_file.is_file():
+            raise SystemExit(f"Prompt file not found: {args.prompt_file}")
         prompt = apply_instrument_tags(
             apply_vocalist_tags(
                 args.prompt_file.read_text(encoding="utf-8").strip(),
@@ -1004,6 +986,13 @@ def main(argv: list[str] | None = None) -> int:
             args.instrument,
         )
         prompt_source = str(args.prompt_file)
+    elif use_style_template and style_slug:
+        prompt = apply_style_template(style_template, args.vocalist, args.instrument)
+        prompt_source = f"style:{style_slug}"
+    else:
+        raise SystemExit(
+            "No prompt source. Pass --style <preset> (default), --prompt-file, or --prompt."
+        )
 
     if args.bpm is None:
         args.bpm = (

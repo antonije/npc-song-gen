@@ -1,0 +1,7 @@
+{
+  "description": "Skyrim campfire — unplugged intimate solo instrument + single vocal (85 BPM)",
+  "inference_steps": 24,
+  "guidance_scale": 6.0,
+  "default_bpm": 85,
+  "lm_negative_prompt": "choir, chorus, ensemble, backing vocals, harmony, overdubs, reverb, echo, drums, bass, synth, pads"
+}
